@@ -44,6 +44,51 @@ class CallBacks:
     #         entry = combo.get_child()
     #         print("Entered: %s" % entry.get_text())
 
+    def Check_Fields_Product():
+        entry_name = builder.get_object('entry_product_name')
+        entry_type = builder.get_object('entry_product_type')
+        entry_description = builder.get_object('entry_product_description')
+
+        info_label_product= builder.get_object('info_label_product')
+
+
+        if entry_name.get_text() and entry_type.get_text() and entry_description.get_text():
+            print ("tudo preenchido")
+            return True
+
+        else:
+            info_label_product.set_text("Fill all fields")
+            return False
+    
+    def CreateProduct():
+
+        global token
+
+        entry_name = builder.get_object('entry_product_name')
+        entry_type = builder.get_object('entry_product_type')
+        entry_description = builder.get_object('entry_product_description')
+
+        info_label_product= builder.get_object('info_label_product')
+
+        #authorizationHeader = f"Bearer {token}"
+        #print(authorizationHeader)
+        
+        resp = requests.post('http://api.hopmarket.tk/products',
+                             json={ 'name': entry_name.get_text(), 'description': entry_description.get_text()},
+                             headers = {'Authorization': f'Bearer {token}'})
+        
+        print(resp.status_code)
+        print(resp.json())
+
+        if resp.status_code == 201:
+            info_label_product.set_text("PRODUCT CREATED :)")
+        else:
+            info_label_product.set_text("FAILED :( try again")
+            
+
+
+
+
 
 # =================================HANDLERS==================
 # Handler log in
@@ -122,21 +167,13 @@ class Handler:
         Gtk.main_quit()
 
     def onCreateProduct_main(self, button):
+        print("CREATE PRODUCT buttom")
 
-        global token
+        field=CallBacks.Check_Fields_Product()
 
-        authorizationHeader = f"Bearer {token}"
-
-        print(authorizationHeader)
-
-        print("CREATE PRoduct")
-        resp = requests.post('http://api.hopmarket.tk/products',
-                             json={ 'name': 'chips', 'description': "xd"},
-                             headers = {'Authorization': f'Bearer {token}'})
+        if field:
+            CallBacks.CreateProduct()
         
-        print(resp.status_code)
-
-        print(resp.json())
 
     def onButtonBackward_product(self, button):
         window_create_product.hide()

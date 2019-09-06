@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 import json
 import requests
-from gi.repository import Gtk
+from gi.repository import Gtk, Gdk, GLib, GdkPixbuf
 import gi
+
+#for opencv
+import cv2
+import numpy as np
+
+#
 gi.require_version('Gtk', '3.0')
 
 
 # GLOBAL VARS
-
 global login_var
 global token
 global w_choose
@@ -192,7 +197,34 @@ window_choose = builder.get_object("GTK_window_choose")
 window_create_product = builder.get_object("GTK_window_createproduct")
 window_create_objectid = builder.get_object("GTK_window_createobjectid")
 # ---------------------------------------------------
-
 window_login.show_all()  # START first window
+#opencv
+cap = cv2.VideoCapture(0)
+image = builder.get_object("camera_image")
+
+def show_frame(*args):
+    ret, frame = cap.read()
+    frame = cv2.resize(frame, None, fx=0.5, fy=0.5, interpolation = cv2.INTER_CUBIC)
+    # if greyscale:
+    #     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    #     frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
+    # else:
+    #     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+ 
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+ 
+    pb = GdkPixbuf.Pixbuf.new_from_data(frame.tostring(),
+                                        GdkPixbuf.Colorspace.RGB,
+                                        False,
+                                        8,
+                                        frame.shape[1],
+                                        frame.shape[0],
+                                        frame.shape[2]*frame.shape[1])
+    image.set_from_pixbuf(pb.copy())
+    return True
+
+GLib.idle_add(show_frame)
 
 Gtk.main()

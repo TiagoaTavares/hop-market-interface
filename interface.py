@@ -7,6 +7,7 @@ import gi
 #for opencv
 import cv2
 import numpy as np
+import time
 
 #local
 import ipstack
@@ -19,9 +20,11 @@ API_URL = 'http://api.hopmarket.tk:3000'
 # GLOBAL VARS
 global login_var
 global w_choose
+global capture
 login_var = False
 token = None
 w_choose = False
+capture = None
 
 
 # ==============CALLBACKS=========
@@ -29,6 +32,8 @@ class CallBacks:
 
     def __init__(self):
         self.token = None
+        self.imageCapture = None
+        self.capture = False
 
     def login(self, username, password):
 
@@ -141,6 +146,7 @@ class CallBacks:
         print("LOCALIDADE=", region, "latitude=", latitude, "longitude", longitude)
 
     def show_frame(self,*args):
+        
         ret, frame = cap.read()
         frame = cv2.resize(frame, None, fx=0.5, fy=0.5, interpolation = cv2.INTER_CUBIC)
         # if greyscale:
@@ -148,9 +154,6 @@ class CallBacks:
         #     frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
         # else:
         #     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-    
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     
         pb = GdkPixbuf.Pixbuf.new_from_data(frame.tostring(),
@@ -161,7 +164,28 @@ class CallBacks:
                                             frame.shape[0],
                                             frame.shape[2]*frame.shape[1])
         image.set_from_pixbuf(pb.copy())
+        
+        if self.capture:
+            self.imageCapture = pb.copy()
+            self.capture = False
+
         return True
+
+    def send_image(self):
+        self.capture = True
+
+        while self.capture == False:
+            pass
+
+        if self.imageCapture.savev('image.png', 'png', [], []):
+        
+            response = requests.post(f'{API_URL}/products/photos', 
+                                    files=dict(files=open('image.png', 'rb').read()),
+                                    headers = {'Authorization': f'{self.token}'})
+
+            print(response.status_code)
+        else:
+            raise Exception('Error saving')
 
 
 
@@ -250,6 +274,8 @@ class Handler:
 
     def onCreateProduct_main(self, button):
         print("CREATE PRODUCT buttom")
+
+        self.callbacks.send_image()
 
         field=self.callbacks.Check_Fields_Product()
 

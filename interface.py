@@ -34,6 +34,10 @@ class CallBacks:
         self.token = None
         self.imageCapture = None
         self.capture = False
+        self.products_list=[]
+
+        self.latitude= None
+        self.longitude= None
 
     def login(self, username, password):
 
@@ -52,21 +56,22 @@ class CallBacks:
 
         return True
 
-    # Refreshcombobox
-    def Get_products(self):
-        print("refresh combobox")
-
-        combobox_type = builder.get_object('type_combo_box')
+    
+    def products(self):
         resp = requests.get(f'{API_URL}/products/mine',
                              headers = {'Authorization': f'{self.token}'})
-        
-        print(resp.status_code)
-        print(resp.json()) #code= 200 se ok
-
         products = resp.json()
 
-        for item in products:
+        return products
+
+    # Refreshcombobox
+    def Get_products(self):
+        
+        combobox_type = builder.get_object('type_combo_box')
+        
+        for item in self.products():
             combobox_type.append_text(item['name'])
+            self.products_list.append(item['name'])
 
 
     def Check_Fields_Product(self):
@@ -124,11 +129,28 @@ class CallBacks:
             
     def CreateItem(self):
         combobox_type = builder.get_object('type_combo_box')
-        item = combobox_type.get_active_text()
+        item_activate = combobox_type.get_active_text()
         #print(item)
-    
+
+        idx=0
+        print("lista=",self.products_list)
+        for item in self.products_list:
+            print(idx)
+            if item_activate == self.products_list[idx]:
+                print("idx=", idx)
+                break
+            idx=idx+1
+
         #1: send CREATE ITEM
+        resp = requests.post(f'{API_URL}/id',
+                             json={ 'productId': idx, 'location': "lat,long"},
+                             headers = {'Authorization': f'{self.token}'})
+        
+        print(resp.status_code)
+        print(resp.json())
+        
         #2: INFO: created or not created
+        
         #3: show QR_code 
 
     def get_localization(self):
@@ -139,8 +161,8 @@ class CallBacks:
 
         location = geo_lookup.get_own_location()
         region = location['region_name']
-        latitude= location['latitude']
-        longitude= location['longitude']
+        self.latitude= location['latitude']
+        self.longitude= location['longitude']
 
         local_info.set_text(region)
         print("LOCALIDADE=", region, "latitude=", latitude, "longitude", longitude)

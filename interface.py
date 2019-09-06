@@ -8,13 +8,16 @@ import gi
 import cv2
 import numpy as np
 
+#local
+import ipstack
+
 #
 gi.require_version('Gtk', '3.0')
 
+API_URL = 'http://api.hopmarket.tk:3000'
 
 # GLOBAL VARS
 global login_var
-global token
 global w_choose
 login_var = False
 token = None
@@ -24,40 +27,59 @@ w_choose = False
 # ==============CALLBACKS=========
 class CallBacks:
 
+    def __init__(self):
+        self.token = None
+
+    def login(self, username, password):
+
+        resp = requests.post(f'{API_URL}/auth/login', json={
+                      'username': username,
+                      'password': password, })
+
+        if resp.status_code != 201:
+            raise Exception("could not login")
+
+        token = resp.json()['token']
+
+        self.token = f"Bearer {token}"
+
+        print(self.token)
+
+        return True
+
     # Refreshcombobox
-    def Get_products():
+    def Get_products(self):
         print("refresh combobox")
 
         combobox_type = builder.get_object('type_combo_box')
+        resp = requests.get(f'{API_URL}/products/mine',
+                             headers = {'Authorization': f'{self.token}'})
+        
+        print(resp.status_code)
+        print(resp.json()) #code= 200 se ok
 
-        # combobox_type.connect("changed", on_name_combo_changed(combobox_type))
+        products = resp.json()
 
-        items = ["item1", "item2", "item3", "item4"]
-            
-        for item in items:
-            combobox_type.append_text(item)
+        for item in products:
+            combobox_type.append_text(item['name'])
 
-        combobox_type.set_entry_text_column(1)
 
-    # def on_name_combo_changed(combo):
-    #     tree_iter = combo.get_active_iter()
-    #     if tree_iter is not None:
-    #         model = combo.get_model()
-    #         row_id, name = model[tree_iter][:2]
-    #         print("Selected: ID=%d, name=%s" % (row_id, name))
-    #     else:
-    #         entry = combo.get_child()
-    #         print("Entered: %s" % entry.get_text())
-
-    def Check_Fields_Product():
+    def Check_Fields_Product(self):
         entry_name = builder.get_object('entry_product_name')
-        entry_type = builder.get_object('entry_product_type')
+        combo_type = builder.get_object('combo_product_type')
+        entry_composition = builder.get_object('entry_composition')
         entry_description = builder.get_object('entry_product_description')
+
 
         info_label_product= builder.get_object('info_label_product')
 
+        name_product = entry_name.get_text()
+        type_product = combo_type.get_active_text()
+        description_product = entry_description.get_text()
+        composition_product = entry_composition.get_text()
 
-        if entry_name.get_text() and entry_type.get_text() and entry_description.get_text():
+
+        if name_product and description_product and composition_product:
             print ("tudo preenchido")
             return True
 
@@ -65,22 +87,27 @@ class CallBacks:
             info_label_product.set_text("Fill all fields")
             return False
     
-    def CreateProduct():
-
-        global token
+    def CreateProduct(self):
 
         entry_name = builder.get_object('entry_product_name')
-        entry_type = builder.get_object('entry_product_type')
+        combo_type = builder.get_object('combo_product_type')
+        entry_composition = builder.get_object('entry_composition')
         entry_description = builder.get_object('entry_product_description')
 
         info_label_product= builder.get_object('info_label_product')
 
         #authorizationHeader = f"Bearer {token}"
         #print(authorizationHeader)
+
+        name_product = entry_name.get_text()
+        type_product = combo_type.get_active_text()
+        description_product = entry_description.get_text()
+        composition_product = entry_composition.get_text()
+
         
-        resp = requests.post('http://api.hopmarket.tk/products',
-                             json={ 'name': entry_name.get_text(), 'description': entry_description.get_text()},
-                             headers = {'Authorization': f'Bearer {token}'})
+        resp = requests.post(f'{API_URL}/products',
+                             json={ 'name': name_product, 'description': description_product},
+                             headers = {'Authorization': f'{self.token}'})
         
         print(resp.status_code)
         print(resp.json())
@@ -90,6 +117,51 @@ class CallBacks:
         else:
             info_label_product.set_text("FAILED :( try again")
             
+    def CreateItem(self):
+        combobox_type = builder.get_object('type_combo_box')
+        item = combobox_type.get_active_text()
+        #print(item)
+    
+        #1: send CREATE ITEM
+        #2: INFO: created or not created
+        #3: show QR_code 
+
+    def get_localization(self):
+        api_key= '91bcda69858e497e10ec7bcdac3ecbd0'
+        geo_lookup = ipstack.GeoLookup(api_key)
+
+        local_info=builder.get_object('label_localization') 
+
+        location = geo_lookup.get_own_location()
+        region = location['region_name']
+        latitude= location['latitude']
+        longitude= location['longitude']
+
+        local_info.set_text(region)
+        print("LOCALIDADE=", region, "latitude=", latitude, "longitude", longitude)
+
+    def show_frame(self,*args):
+        ret, frame = cap.read()
+        frame = cv2.resize(frame, None, fx=0.5, fy=0.5, interpolation = cv2.INTER_CUBIC)
+        # if greyscale:
+        #     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        #     frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
+        # else:
+        #     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+    
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    
+        pb = GdkPixbuf.Pixbuf.new_from_data(frame.tostring(),
+                                            GdkPixbuf.Colorspace.RGB,
+                                            False,
+                                            8,
+                                            frame.shape[1],
+                                            frame.shape[0],
+                                            frame.shape[2]*frame.shape[1])
+        image.set_from_pixbuf(pb.copy())
+        return True
 
 
 
@@ -99,6 +171,9 @@ class CallBacks:
 # Handler log in
 class Handler:
 
+    def __init__(self, callbacks):
+        self.callbacks = callbacks
+
     # ************ HANDLER LOG IN *********
     def onDestroy(self, *args):
         Gtk.main_quit()
@@ -106,23 +181,15 @@ class Handler:
     def onButtonOk(self, button):
         print("OK, send data!")
 
-        entry_username = builder.get_object('entry_username')
-        entry_password = builder.get_object('entry_password')
-        print("username=", entry_username.get_text())
-        print("password=", entry_password.get_text())
+        username = builder.get_object('entry_username').get_text()
+        password = builder.get_object('entry_password').get_text()
+        print("username=", username)
+        print("password=", password)
 
-        resp = requests.post('http://api.hopmarket.tk/auth/login', json={
-                      'username': 'tiago1234',
-                      'password': 'tiago1234', })
+        # ok = self.callbacks.login(username, password)
+        ok = self.callbacks.login("tiago1234", "tiago1234")
 
-        if resp.status_code == 201:
-            global token
-            token = resp.json()['token']
-            print(token)
-            login_var = True
-
-
-        if login_var:
+        if ok:
             window_login.hide()
             window_choose.show_all()
 
@@ -144,7 +211,8 @@ class Handler:
     def onCreateObjectID(self, button):
         window_choose.hide()
         window_create_objectid.show_all()
-        CallBacks.Get_products()
+        self.callbacks.Get_products()
+        self.callbacks.get_localization()
 
     def onButtonCancelChoose(self, button):
         # print("Cancel!")
@@ -157,16 +225,25 @@ class Handler:
         Gtk.main_quit()
 
     def onCreateObjectID_main(self, button):
-
         print("CREATE ID")
+        self.callbacks.CreateItem()
         # Gtk.main_quit()
 
     def onButtonBackward_objectid(self, button):
         window_create_objectid.hide()
         window_choose.show_all()
+
+    def on_name_combo_changed(self, combo):
+        combo = builder.get_object('type_combo_box')
+        tree_iter = combo.get_active_iter()
+
+        if tree_iter is not None:
+            model = combo.get_model()
+            row_id, name = model[tree_iter][:2]
+            # print("Selected: ID=%d, name=%s" % (row_id, name))
+        else:
+            print("else else")
         
-
-
     # ********** HANDLER CREATE PRODUCT*****
     def onDestroyProduct_main(self, *args):
         Gtk.main_quit()
@@ -174,10 +251,10 @@ class Handler:
     def onCreateProduct_main(self, button):
         print("CREATE PRODUCT buttom")
 
-        field=CallBacks.Check_Fields_Product()
+        field=self.callbacks.Check_Fields_Product()
 
         if field:
-            CallBacks.CreateProduct()
+            self.callbacks.CreateProduct()
         
 
     def onButtonBackward_product(self, button):
@@ -186,10 +263,12 @@ class Handler:
         
 
 # --------------------------------------------------------
+
 # builder
 builder = Gtk.Builder()
 builder.add_from_file("interface.glade")
-builder.connect_signals(Handler())
+callbacks = CallBacks()
+builder.connect_signals(Handler(callbacks))
 
 # ==========DEF windows===========
 window_login = builder.get_object("GTK_window_loggin")
@@ -202,29 +281,6 @@ window_login.show_all()  # START first window
 cap = cv2.VideoCapture(0)
 image = builder.get_object("camera_image")
 
-def show_frame(*args):
-    ret, frame = cap.read()
-    frame = cv2.resize(frame, None, fx=0.5, fy=0.5, interpolation = cv2.INTER_CUBIC)
-    # if greyscale:
-    #     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    #     frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
-    # else:
-    #     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
- 
-    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
- 
-    pb = GdkPixbuf.Pixbuf.new_from_data(frame.tostring(),
-                                        GdkPixbuf.Colorspace.RGB,
-                                        False,
-                                        8,
-                                        frame.shape[1],
-                                        frame.shape[0],
-                                        frame.shape[2]*frame.shape[1])
-    image.set_from_pixbuf(pb.copy())
-    return True
-
-GLib.idle_add(show_frame)
+GLib.idle_add(callbacks.show_frame)
 
 Gtk.main()

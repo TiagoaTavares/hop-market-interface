@@ -177,6 +177,7 @@
                                   <object class="GtkComboBoxText" id="type_combo_box">
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
+                                    <signal name="changed" handler="on_name_combo_changed" swapped="no"/>
                                   </object>
                                 </child>
                               </object>
@@ -239,9 +240,10 @@
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
-                                  <object class="GtkEntry" id="entry_username4">
+                                  <object class="GtkLabel">
                                     <property name="visible">True</property>
-                                    <property name="can_focus">True</property>
+                                    <property name="can_focus">False</property>
+                                    <property name="label" translatable="yes">  </property>
                                   </object>
                                 </child>
                               </object>
@@ -503,9 +505,14 @@
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
-                                  <object class="GtkEntry" id="entry_product_type">
+                                  <object class="GtkComboBoxText" id="combo_product_type">
                                     <property name="visible">True</property>
-                                    <property name="can_focus">True</property>
+                                    <property name="can_focus">False</property>
+                                    <property name="active">0</property>
+                                    <items>
+                                      <item translatable="yes">raw</item>
+                                      <item translatable="yes">craft</item>
+                                    </items>
                                   </object>
                                 </child>
                               </object>
@@ -522,6 +529,38 @@
                             <property name="expand">False</property>
                             <property name="fill">True</property>
                             <property name="position">1</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkFrame">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="label_xalign">0.5</property>
+                            <property name="shadow_type">etched-out</property>
+                            <child>
+                              <object class="GtkAlignment">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <child>
+                                  <object class="GtkEntry" id="entry_composition">
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">True</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                            <child type="label">
+                              <object class="GtkLabel">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="label" translatable="yes">Composition</property>
+                              </object>
+                            </child>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="fill">True</property>
+                            <property name="position">2</property>
                           </packing>
                         </child>
                         <child>
@@ -553,7 +592,7 @@
                           <packing>
                             <property name="expand">False</property>
                             <property name="fill">True</property>
-                            <property name="position">2</property>
+                            <property name="position">3</property>
                           </packing>
                         </child>
                         <child>
@@ -586,7 +625,7 @@
                           <packing>
                             <property name="expand">False</property>
                             <property name="fill">True</property>
-                            <property name="position">3</property>
+                            <property name="position">4</property>
                           </packing>
                         </child>
                         <child>
@@ -636,7 +675,7 @@
                           <packing>
                             <property name="expand">False</property>
                             <property name="fill">True</property>
-                            <property name="position">4</property>
+                            <property name="position">5</property>
                           </packing>
                         </child>
                       </object>

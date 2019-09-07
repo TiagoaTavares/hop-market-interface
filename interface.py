@@ -4,12 +4,12 @@ import requests
 from gi.repository import Gtk, Gdk, GLib, GdkPixbuf
 import gi
 
-#for opencv
+# for opencv
 import cv2
 import numpy as np
 import time
 
-#local
+# local
 import ipstack
 
 #
@@ -26,6 +26,9 @@ token = None
 w_choose = False
 capture = None
 
+global button_product
+button_product = False
+
 
 # ==============CALLBACKS=========
 class CallBacks:
@@ -33,17 +36,18 @@ class CallBacks:
     def __init__(self):
         self.token = None
         self.imageCapture = None
-        self.capture = False
-        self.products_list=[]
 
-        self.latitude= None
-        self.longitude= None
+        self.products_list = []
+        self.products_list_productId = []
+
+        self.latitude = None
+        self.longitude = None
 
     def login(self, username, password):
 
         resp = requests.post(f'{API_URL}/auth/login', json={
-                      'username': username,
-                      'password': password, })
+            'username': username,
+            'password': password, })
 
         if resp.status_code != 201:
             raise Exception("could not login")
@@ -56,23 +60,22 @@ class CallBacks:
 
         return True
 
-    
     def products(self):
         resp = requests.get(f'{API_URL}/products/mine',
-                             headers = {'Authorization': f'{self.token}'})
+                            headers={'Authorization': f'{self.token}'})
         products = resp.json()
-
+        print(products)
         return products
 
     # Refreshcombobox
     def Get_products(self):
-        
+
         combobox_type = builder.get_object('type_combo_box')
-        
+
         for item in self.products():
             combobox_type.append_text(item['name'])
             self.products_list.append(item['name'])
-
+            self.products_list_productId.append(item['productId'])
 
     def Check_Fields_Product(self):
         entry_name = builder.get_object('entry_product_name')
@@ -80,23 +83,21 @@ class CallBacks:
         entry_composition = builder.get_object('entry_composition')
         entry_description = builder.get_object('entry_product_description')
 
-
-        info_label_product= builder.get_object('info_label_product')
+        info_label_product = builder.get_object('info_label_product')
 
         name_product = entry_name.get_text()
         type_product = combo_type.get_active_text()
         description_product = entry_description.get_text()
         composition_product = entry_composition.get_text()
 
-
         if name_product and description_product and composition_product:
-            print ("tudo preenchido")
+            print("tudo preenchido")
             return True
 
         else:
             info_label_product.set_text("Fill all fields")
             return False
-    
+
     def CreateProduct(self):
 
         entry_name = builder.get_object('entry_product_name')
@@ -104,80 +105,110 @@ class CallBacks:
         entry_composition = builder.get_object('entry_composition')
         entry_description = builder.get_object('entry_product_description')
 
-        info_label_product= builder.get_object('info_label_product')
+        info_label_product = builder.get_object('info_label_product')
 
-        #authorizationHeader = f"Bearer {token}"
-        #print(authorizationHeader)
+        # authorizationHeader = f"Bearer {token}"
+        # print(authorizationHeader)
 
         name_product = entry_name.get_text()
         type_product = combo_type.get_active_text()
         description_product = entry_description.get_text()
         composition_product = entry_composition.get_text()
 
-        
-        resp = requests.post(f'{API_URL}/products',
-                             json={ 'name': name_product, 'description': description_product},
-                             headers = {'Authorization': f'{self.token}'})
-        
-        print(resp.status_code)
-        print(resp.json())
+        url = self.send_image()
+        print('url=', url)
+        print('sai do send image')
 
-        if resp.status_code == 201:
-            info_label_product.set_text("PRODUCT CREATED :)")
+        if url:
+            resp = requests.post(f'{API_URL}/products',
+                                 json={'name': name_product, 'description': description_product, 'ingredients': [
+                                 ], 'photo': url},
+                                 headers={'Authorization': f'{self.token}'})
+
+            print(resp.status_code)
+            print(resp.json())
+
+            if resp.status_code == 201:
+                info_label_product.set_text("PRODUCT CREATED :)")
+            else:
+                info_label_product.set_text("FAILED :( try again")
         else:
-            info_label_product.set_text("FAILED :( try again")
-            
+            info_label_product.set_text("FAILED :( Url not found!")
+
     def CreateItem(self):
         combobox_type = builder.get_object('type_combo_box')
         item_activate = combobox_type.get_active_text()
-        #print(item)
+        # print(item)
 
-        idx=0
-        print("lista=",self.products_list)
+        idx = 0
+        print("lista=", self.products_list)
         for item in self.products_list:
-            print(idx)
             if item_activate == self.products_list[idx]:
                 print("idx=", idx)
+                productID = self.products_list_productId[idx]
+                print("productID=", productID)
                 break
-            idx=idx+1
+            idx = idx+1
 
-        #1: send CREATE ITEM
-        resp = requests.post(f'{API_URL}/id',
-                             json={ 'productId': idx, 'location': "lat,long"},
-                             headers = {'Authorization': f'{self.token}'})
-        
+        # 1: send CREATE ITEM
+        resp = requests.post(f'{API_URL}/items',
+                             json={'productId': productID,
+                                   'location': f'{self.latitude},{self.longitude}'},
+                             headers={'Authorization': f'{self.token}'})
+
         print(resp.status_code)
         print(resp.json())
-        
-        #2: INFO: created or not created
-        
-        #3: show QR_code 
+        itemID_json = resp.json()
+        itemID = itemID_json['itemId']
+
+        # 2: INFO: created or not created
+        info_label_product = builder.get_object('info_label_objectid')
+        if resp.status_code == 201:
+            info_label_product.set_text("PRODUCT CREATED :)")
+            # show_qr_var
+        else:
+            info_label_product.set_text("ITEM NOT CREATED :(")
+            return
+        # 3: show QR_code
+            QrCode = self.get_item_qrcode(itemID)
+
+    def get_item_qrcode(self, itemID):
+        resp = requests.get(f'{API_URL}/item/qrcode',
+                            json={'productId': itemID},
+                            headers={'Authorization': f'{self.token}'})
+
+        print(resp.status_code)
+        print(resp.json())
+        return True
 
     def get_localization(self):
-        api_key= '91bcda69858e497e10ec7bcdac3ecbd0'
+        api_key = '91bcda69858e497e10ec7bcdac3ecbd0'
         geo_lookup = ipstack.GeoLookup(api_key)
 
-        local_info=builder.get_object('label_localization') 
+        local_info = builder.get_object('label_localization')
 
         location = geo_lookup.get_own_location()
         region = location['region_name']
-        self.latitude= location['latitude']
-        self.longitude= location['longitude']
+        self.latitude = location['latitude']
+        self.longitude = location['longitude']
 
         local_info.set_text(region)
-        print("LOCALIDADE=", region, "latitude=", latitude, "longitude", longitude)
+        print("LOCALIDADE=", region, "latitude=",
+              latitude, "longitude", longitude)
 
-    def show_frame(self,*args):
-        
+    def show_frame(self, *args):
+        global capture
+
         ret, frame = cap.read()
-        frame = cv2.resize(frame, None, fx=0.5, fy=0.5, interpolation = cv2.INTER_CUBIC)
+        frame = cv2.resize(frame, None, fx=0.5, fy=0.5,
+                           interpolation=cv2.INTER_CUBIC)
         # if greyscale:
         #     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         #     frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
         # else:
         #     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    
+
         pb = GdkPixbuf.Pixbuf.new_from_data(frame.tostring(),
                                             GdkPixbuf.Colorspace.RGB,
                                             False,
@@ -186,31 +217,31 @@ class CallBacks:
                                             frame.shape[0],
                                             frame.shape[2]*frame.shape[1])
         image.set_from_pixbuf(pb.copy())
-        
-        if self.capture:
-            self.imageCapture = pb.copy()
-            self.capture = False
 
+        print("UPDATE image allback")
+
+        self.imageCapture = pb.copy()
+        print("UPDATE image allback: change var")
         return True
 
     def send_image(self):
-        self.capture = True
+        global capture
+        capture = True
 
-        while self.capture == False:
-            pass
+        print("VAMOS ENVIAR A IMAGEM")
 
         if self.imageCapture.savev('image.png', 'png', [], []):
-        
-            response = requests.post(f'{API_URL}/products/photos', 
-                                    files=dict(files=open('image.png', 'rb').read()),
-                                    headers = {'Authorization': f'{self.token}'})
+            print('estou ca dentro')
 
-            print(response.status_code)
+            response = requests.post(f'{API_URL}/photos',
+                                     files=dict(files=open(
+                                         'image.png', 'rb').read()),
+                                     headers={'Authorization': f'{self.token}'})
+            url = response.json()[0]
+            print(response.json()[0])
+            return url
         else:
             raise Exception('Error saving')
-
-
-
 
 
 # =================================HANDLERS==================
@@ -264,9 +295,8 @@ class Handler:
         # print("Cancel!")
         Gtk.main_quit()
 
-
-
     # ********** HANDLER CREATE ObjectID*****
+
     def onDestroyObjectID_main(self, *args):
         Gtk.main_quit()
 
@@ -289,7 +319,7 @@ class Handler:
             # print("Selected: ID=%d, name=%s" % (row_id, name))
         else:
             print("else else")
-        
+
     # ********** HANDLER CREATE PRODUCT*****
     def onDestroyProduct_main(self, *args):
         Gtk.main_quit()
@@ -297,18 +327,15 @@ class Handler:
     def onCreateProduct_main(self, button):
         print("CREATE PRODUCT buttom")
 
-        self.callbacks.send_image()
-
-        field=self.callbacks.Check_Fields_Product()
+        field = self.callbacks.Check_Fields_Product()
 
         if field:
             self.callbacks.CreateProduct()
-        
 
     def onButtonBackward_product(self, button):
         window_create_product.hide()
         window_choose.show_all()
-        
+
 
 # --------------------------------------------------------
 
@@ -325,7 +352,7 @@ window_create_product = builder.get_object("GTK_window_createproduct")
 window_create_objectid = builder.get_object("GTK_window_createobjectid")
 # ---------------------------------------------------
 window_login.show_all()  # START first window
-#opencv
+# opencv
 cap = cv2.VideoCapture(0)
 image = builder.get_object("camera_image")
 

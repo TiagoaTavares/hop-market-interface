@@ -9,6 +9,9 @@ import cv2
 import numpy as np
 import time
 
+#for decode Qr
+from pyzbar.pyzbar import decode
+
 # local
 import ipstack
 
@@ -194,11 +197,9 @@ class CallBacks:
 
         local_info.set_text(region)
         print("LOCALIDADE=", region, "latitude=",
-              latitude, "longitude", longitude)
+              self.latitude, "longitude", self.longitude)
 
     def show_frame(self, *args):
-        global capture
-
         ret, frame = cap.read()
         frame = cv2.resize(frame, None, fx=0.5, fy=0.5,
                            interpolation=cv2.INTER_CUBIC)
@@ -218,16 +219,48 @@ class CallBacks:
                                             frame.shape[2]*frame.shape[1])
         image.set_from_pixbuf(pb.copy())
 
-        print("UPDATE image allback")
+        #print("UPDATE image allback")
 
         self.imageCapture = pb.copy()
-        print("UPDATE image allback: change var")
+        #print("UPDATE image allback: change var")
+        return True
+
+    def show_frame_qr(self, *args):
+        ret, frame = cap.read()
+        frame = cv2.resize(frame, None, fx=0.5, fy=0.5,
+                           interpolation=cv2.INTER_CUBIC)
+        # if greyscale:
+        #     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        #     frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
+        # else:
+        #     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        qrcodes = decode(frame)
+		
+        for qrcode in qrcodes:
+            	(x, y, w, h) = qrcode.rect
+            	cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
+            	qrcodeData = qrcode.data.decode("utf-8")
+            	qrcodeType = qrcode.type
+            	text = "{} ({})".format(qrcodeData, qrcodeType)
+            	cv2.putText(frame, text, (x, y - 10),
+            	cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+
+        pb = GdkPixbuf.Pixbuf.new_from_data(frame.tostring(),
+                                            GdkPixbuf.Colorspace.RGB,
+                                            False,
+                                            8,
+                                            frame.shape[1],
+                                            frame.shape[0],
+                                            frame.shape[2]*frame.shape[1])
+        image_qr.set_from_pixbuf(pb.copy())
+
+        #print("UPDATE image allback")
+        #print("UPDATE image allback: change var")
         return True
 
     def send_image(self):
-        global capture
-        capture = True
-
         print("VAMOS ENVIAR A IMAGEM")
 
         if self.imageCapture.savev('image.png', 'png', [], []):
@@ -355,7 +388,9 @@ window_login.show_all()  # START first window
 # opencv
 cap = cv2.VideoCapture(0)
 image = builder.get_object("camera_image")
+image_qr = builder.get_object("qr_image")
 
 GLib.idle_add(callbacks.show_frame)
+GLib.idle_add(callbacks.show_frame_qr)
 
 Gtk.main()

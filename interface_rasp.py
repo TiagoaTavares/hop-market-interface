@@ -1,0 +1,449 @@
+#!/usr/bin/env python3
+import json
+import requests
+import gi
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk, Gdk, GLib, GdkPixbuf
+from imutils.video import VideoStream
+
+# for opencv
+import cv2
+import numpy as np
+import time
+
+#for decode Qr
+from pyzbar.pyzbar import decode
+
+#Data_url
+from base64 import b64decode
+
+from PIL import Image
+
+# local
+import ipstack
+
+#
+
+
+API_URL = 'http://api.hopmarket.tk:3000'
+
+# GLOBAL VARS
+global login_var
+global w_choose
+global capture
+login_var = False
+token = None
+w_choose = False
+capture = None
+
+global button_product
+button_product = False
+
+
+# ==============CALLBACKS=========
+class CallBacks:
+
+    def __init__(self):
+        self.token = None
+        self.imageCapture = None
+
+        self.products_list = []
+        self.products_list_productId = []
+
+        self.latitude = None
+        self.longitude = None
+
+        self.item_qr= None
+        self.list_items_ingredients=[]
+
+    def login(self, username, password):
+
+        resp = requests.post(API_URL+'/auth/login', json={
+            'username': username,
+            'password': password, })
+
+        if resp.status_code != 201:
+            raise Exception("could not login")
+
+        token = resp.json()['token']
+
+        self.token = "Bearer " + token
+
+        print(self.token)
+
+        return True
+
+    def products(self):
+        resp = requests.get(API_URL+'/products/mine',
+                            headers={'Authorization': self.token})
+        products = resp.json()
+        print(products)
+        return products
+
+    # Refreshcombobox
+    def Get_products(self):
+
+        combobox_type = builder.get_object('type_combo_box')
+
+        for item in self.products():
+            combobox_type.append_text(item['name'])
+            self.products_list.append(item['name'])
+            self.products_list_productId.append(item['productId'])
+
+    def Check_Fields_Product(self):
+        entry_name = builder.get_object('entry_product_name')
+        combo_type = builder.get_object('combo_product_type')
+        entry_composition = builder.get_object('entry_composition')
+        entry_description = builder.get_object('entry_product_description')
+
+        info_label_product = builder.get_object('info_label_product')
+
+        name_product = entry_name.get_text()
+        type_product = combo_type.get_active_text()
+        description_product = entry_description.get_text()
+        composition_product = entry_composition.get_text()
+
+        if name_product and description_product and composition_product:
+            return True
+
+        else:
+            info_label_product.set_text("Fill all fields")
+            return False
+
+    def CreateProduct(self):
+
+        entry_name = builder.get_object('entry_product_name')
+        combo_type = builder.get_object('combo_product_type')
+        entry_composition = builder.get_object('entry_composition')
+        entry_description = builder.get_object('entry_product_description')
+
+        info_label_product = builder.get_object('info_label_product')
+
+        # authorizationHeader = f"Bearer {token}"
+        # print(authorizationHeader)
+
+        name_product = entry_name.get_text()
+        type_product = combo_type.get_active_text()
+        description_product = entry_description.get_text()
+        composition_product = entry_composition.get_text()
+
+        url = self.send_image()
+
+        if url:
+            resp = requests.post(API_URL+'/products',
+                                 json={'name': name_product, 'description': description_product, 'ingredients': [
+                                 ], 'photo': url},
+                                 headers={'Authorization': self.token})
+
+
+            if resp.status_code == 201:
+                info_label_product.set_text("PRODUCT CREATED :)")
+            else:
+                info_label_product.set_text("FAILED :( try again")
+        else:
+            info_label_product.set_text("FAILED :( Url not found!")
+
+    def CreateItem(self):
+        combobox_type = builder.get_object('type_combo_box')
+        item_activate = combobox_type.get_active_text()
+        # print(item)
+
+        idx = 0
+        for item in self.products_list:
+            if item_activate == self.products_list[idx]:
+                productID = self.products_list_productId[idx]
+                break
+            idx = idx+1
+        # 1: send CREATE ITEM
+
+        ingredients = list(map(int, self.list_items_ingredients))
+
+        resp = requests.post(API_URL+'/items',
+                             json={'productId': productID,
+                                    'ingredients': ingredients,
+                                   'location': "lat,long"},
+                             headers={'Authorization': self.token})
+
+        itemID_json = resp.json()
+        itemID = itemID_json['itemId']
+
+        # 2: INFO: created or not created
+        info_label_product = builder.get_object('info_label_objectid')
+        if resp.status_code == 201:
+            info_label_product.set_text("PRODUCT CREATED :)")
+            # show_qr_var
+        else:
+            info_label_product.set_text("ITEM NOT CREATED :(")
+            return
+        # 3: show QR_code
+        data_url = self.get_item_qrcode(itemID).decode()
+        header,encoded=data_url.split(",",1)
+        data = b64decode(encoded)
+        with open("qrcode.png","wb") as f:
+            f.write(data)
+
+
+        #limpa campos
+        self.clear_ingredients()
+
+    def add_ingredient_id(self):
+        combobox_id_composition = builder.get_object('combo_items_id_composition')
+        idx=0
+        var = False
+        for ingrediente in self.list_items_ingredients:
+            if self.item_qr == self.list_items_ingredients[idx] :
+                var=True
+                break
+            idx=idx+1
+        
+        if not var :
+            self.list_items_ingredients.append(self.item_qr)
+            combobox_id_composition.append_text(self.item_qr)
+
+    def clear_ingredients(self):
+        combobox_id_composition = builder.get_object('combo_items_id_composition')
+        combobox_id_composition.remove_all()
+        self.list_items_ingredients=[]
+
+
+    def get_item_qrcode(self, itemID):
+        resp = requests.post(API_URL+'/qr',
+                            json={'data': str(itemID)},
+                            headers={'Authorization': self.token})
+        if resp.status_code==201:
+            pass
+
+        return resp.content
+
+    def get_localization(self):
+        api_key = '91bcda69858e497e10ec7bcdac3ecbd0'
+        geo_lookup = ipstack.GeoLookup(api_key)
+
+        local_info = builder.get_object('label_localization')
+
+        location = geo_lookup.get_own_location()
+        region = location['region_name']
+        self.latitude = location['latitude']
+        self.longitude = location['longitude']
+
+        local_info.set_text(region)
+
+    def show_frame(self, *args):
+        frame = cap.read()
+        frame = cv2.resize(frame, None, fx=1.2, fy=1.2,
+                           interpolation=cv2.INTER_CUBIC)
+        # if greyscale:
+        #     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        #     frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
+        # else:
+        #     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        pb = GdkPixbuf.Pixbuf.new_from_data(frame.tostring(),
+                                            GdkPixbuf.Colorspace.RGB,
+                                            False,
+                                            8,
+                                            frame.shape[1],
+                                            frame.shape[0],
+                                            frame.shape[2]*frame.shape[1])
+        image.set_from_pixbuf(pb.copy())
+
+        #print("UPDATE image allback")
+
+        self.imageCapture = pb.copy()
+        #print("UPDATE image allback: change var")
+        return True
+
+    def show_frame_qr(self, *args):
+        frame = cap.read()
+        frame = cv2.resize(frame, None, fx=1.2, fy=1.2,
+                           interpolation=cv2.INTER_CUBIC)
+        # if greyscale:
+        #     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        #     frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
+        # else:
+        #     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        qrcodes = decode(frame)
+		
+        for qrcode in qrcodes:
+            (x, y, w, h) = qrcode.rect
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
+            qrcodeData = qrcode.data.decode("utf-8")
+            qrcodeType = qrcode.type
+            text = "{} ({})".format(qrcodeData, qrcodeType)
+            cv2.putText(frame, text, (x, y - 10),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+            self.item_qr=qrcodeData
+
+        pb = GdkPixbuf.Pixbuf.new_from_data(frame.tostring(),
+                                            GdkPixbuf.Colorspace.RGB,
+                                            False,
+                                            8,
+                                            frame.shape[1],
+                                            frame.shape[0],
+                                            frame.shape[2]*frame.shape[1])
+        image_qr.set_from_pixbuf(pb.copy())
+
+        #print("UPDATE image allback")
+        #print("UPDATE image allback: change var")
+        return True
+
+    def send_image(self):
+
+        if self.imageCapture.savev('image.png', 'png', [], []):
+
+            response = requests.post(API_URL+'/photos',
+                                     files=dict(files=open(
+                                         'image.png', 'rb').read()),
+                                     headers={'Authorization': self.token})
+            url = response.json()[0]
+            return url
+        else:
+            raise Exception('Error saving')
+
+    def show_qr_code_item(self):
+
+        # frame = Image.open("qrcode.png")
+        # pb = GdkPixbuf.Pixbuf.new_from_data(frame.tostring(),
+        #                                     GdkPixbuf.Colorspace.RGB,
+        #                                     False,
+        #                                     8,
+        #                                     frame.shape[1],
+        #                                     frame.shape[0],
+        #                                     frame.shape[2]*frame.shape[1])
+        pb = GdkPixbuf.Pixbuf.new_from_file('qrcode.png')
+        image_qr_window.set_from_pixbuf(pb.copy())
+
+# =================================HANDLERS==================
+# Handler log in
+class Handler:
+
+    def __init__(self, callbacks):
+        self.callbacks = callbacks
+
+    # ************ HANDLER LOG IN *********
+    def onDestroy(self, *args):
+        Gtk.main_quit()
+
+    def onButtonOk(self, button):
+
+        username = builder.get_object('entry_username').get_text()
+        password = builder.get_object('entry_password').get_text()
+
+
+        # ok = self.callbacks.login(username, password)
+        ok = self.callbacks.login(username, password)
+
+        if ok:
+            window_login.hide()
+            window_choose.show_all()
+
+        # Gtk.main_quit()
+
+    def onButtonCancel(self, button):
+        Gtk.main_quit()
+
+    # ********** HANDLER CHOOSE *****
+
+    def onDestroyChoose(self, *args):
+        Gtk.main_quit()
+
+    def onCreateProduct(self, button):
+        window_choose.hide()
+        window_create_product.show_all()
+
+    def onCreateObjectID(self, button):
+        window_choose.hide()
+        window_create_objectid.show_all()
+        self.callbacks.Get_products()
+        self.callbacks.get_localization()
+
+    def onButtonCancelChoose(self, button):
+        # print("Cancel!")
+        Gtk.main_quit()
+
+    # ********** HANDLER CREATE ObjectID*****
+
+    def onDestroyObjectID_main(self, *args):
+        Gtk.main_quit()
+
+    def onCreateObjectID_main(self, button):
+        self.callbacks.CreateItem()
+        # Gtk.main_quit()
+        self.callbacks.show_qr_code_item()
+        window_qr.show_all()
+
+    def onButtonBackward_objectid(self, button):
+        window_create_objectid.hide()
+        window_choose.show_all()
+
+    def on_name_combo_changed(self, combo):
+        combo = builder.get_object('type_combo_box')
+        tree_iter = combo.get_active_iter()
+
+        if tree_iter is not None:
+            model = combo.get_model()
+            row_id, name = model[tree_iter][:2]
+            # print("Selected: ID=%d, name=%s" % (row_id, name))
+       
+
+
+    def onAddComposition(self, button):
+        self.callbacks.add_ingredient_id()
+
+
+    # ********** HANDLER CREATE PRODUCT*****
+    def onDestroyProduct_main(self, *args):
+        Gtk.main_quit()
+
+    def onCreateProduct_main(self, button):
+
+        field = self.callbacks.Check_Fields_Product()
+
+        if field:
+            self.callbacks.CreateProduct()
+
+    def onButtonBackward_product(self, button):
+        window_create_product.hide()
+        window_choose.show_all()
+
+    # ********** HANDLER SHOW QRCODE *****
+    def on_button_qrcode_print(self, button):
+        print("PRINTING QR....")
+
+    def on_button_qrcode_backward(self, button):
+        window_qr.hide()
+
+
+# --------------------------------------------------------
+cap = VideoStream(usePiCamera=True).start()
+# builder
+builder = Gtk.Builder()
+builder.add_from_file("interface.glade")
+callbacks = CallBacks()
+builder.connect_signals(Handler(callbacks))
+
+# ==========DEF windows===========
+window_login = builder.get_object("GTK_window_loggin")
+window_choose = builder.get_object("GTK_window_choose")
+window_create_product = builder.get_object("GTK_window_createproduct")
+window_create_objectid = builder.get_object("GTK_window_createobjectid")
+window_qr = builder.get_object("GTK_qr_window")
+# ---------------------------------------------------
+window_login.show_all()  # START first window
+
+window_create_product.maximize()
+window_create_objectid.maximize()
+
+# opencv
+
+image = builder.get_object("camera_image")
+image_qr = builder.get_object("qr_image")
+image_qr_window = builder.get_object("imagem_qrcode")
+
+
+GLib.idle_add(callbacks.show_frame)
+GLib.idle_add(callbacks.show_frame_qr)
+
+Gtk.main()

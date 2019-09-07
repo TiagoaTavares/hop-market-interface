@@ -12,6 +12,11 @@ import time
 #for decode Qr
 from pyzbar.pyzbar import decode
 
+#Data_url
+from base64 import b64decode
+
+from PIL import Image
+
 # local
 import ipstack
 
@@ -45,6 +50,9 @@ class CallBacks:
 
         self.latitude = None
         self.longitude = None
+
+        self.item_qr= None
+        self.list_items_ingredients=[]
 
     def login(self, username, password):
 
@@ -152,10 +160,14 @@ class CallBacks:
                 print("productID=", productID)
                 break
             idx = idx+1
-
+        print(self.list_items_ingredients)
         # 1: send CREATE ITEM
+
+        ingredients = list(map(int, self.list_items_ingredients))
+
         resp = requests.post(f'{API_URL}/items',
                              json={'productId': productID,
+                                    'ingredients': ingredients,
                                    'location': f'{self.latitude},{self.longitude}'},
                              headers={'Authorization': f'{self.token}'})
 
@@ -173,16 +185,49 @@ class CallBacks:
             info_label_product.set_text("ITEM NOT CREATED :(")
             return
         # 3: show QR_code
-            QrCode = self.get_item_qrcode(itemID)
+        print("qr")
+        data_url = self.get_item_qrcode(itemID).decode()
+        print(data_url)
+        header,encoded=data_url.split(",",1)
+        data = b64decode(encoded)
+        with open("qrcode.png","wb") as f:
+            f.write(data)
+
+
+        #limpa campos
+        self.clear_ingredients()
+
+    def add_ingredient_id(self):
+        combobox_id_composition = builder.get_object('combo_items_id_composition')
+        idx=0
+        var = False
+        for ingrediente in self.list_items_ingredients:
+            if self.item_qr == self.list_items_ingredients[idx] :
+                var=True
+                break
+            idx=idx+1
+        
+        if not var :
+            self.list_items_ingredients.append(self.item_qr)
+            combobox_id_composition.append_text(self.item_qr)
+
+    def clear_ingredients(self):
+        combobox_id_composition = builder.get_object('combo_items_id_composition')
+        combobox_id_composition.remove_all()
+        self.list_items_ingredients=[]
+
 
     def get_item_qrcode(self, itemID):
-        resp = requests.get(f'{API_URL}/item/qrcode',
-                            json={'productId': itemID},
+        resp = requests.post(f'{API_URL}/qr',
+                            json={'data': str(itemID)},
                             headers={'Authorization': f'{self.token}'})
-
+        print("GET QR CODE")
         print(resp.status_code)
-        print(resp.json())
-        return True
+        print(resp.content)
+        if resp.status_code==201:
+            pass
+
+        return resp.content
 
     def get_localization(self):
         api_key = '91bcda69858e497e10ec7bcdac3ecbd0'
@@ -201,7 +246,7 @@ class CallBacks:
 
     def show_frame(self, *args):
         ret, frame = cap.read()
-        frame = cv2.resize(frame, None, fx=0.5, fy=0.5,
+        frame = cv2.resize(frame, None, fx=1.2, fy=1.2,
                            interpolation=cv2.INTER_CUBIC)
         # if greyscale:
         #     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -227,7 +272,7 @@ class CallBacks:
 
     def show_frame_qr(self, *args):
         ret, frame = cap.read()
-        frame = cv2.resize(frame, None, fx=0.5, fy=0.5,
+        frame = cv2.resize(frame, None, fx=1.2, fy=1.2,
                            interpolation=cv2.INTER_CUBIC)
         # if greyscale:
         #     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -235,17 +280,17 @@ class CallBacks:
         # else:
         #     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
         qrcodes = decode(frame)
 		
         for qrcode in qrcodes:
-            	(x, y, w, h) = qrcode.rect
-            	cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
-            	qrcodeData = qrcode.data.decode("utf-8")
-            	qrcodeType = qrcode.type
-            	text = "{} ({})".format(qrcodeData, qrcodeType)
-            	cv2.putText(frame, text, (x, y - 10),
-            	cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            (x, y, w, h) = qrcode.rect
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
+            qrcodeData = qrcode.data.decode("utf-8")
+            qrcodeType = qrcode.type
+            text = "{} ({})".format(qrcodeData, qrcodeType)
+            cv2.putText(frame, text, (x, y - 10),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+            self.item_qr=qrcodeData
 
         pb = GdkPixbuf.Pixbuf.new_from_data(frame.tostring(),
                                             GdkPixbuf.Colorspace.RGB,
@@ -276,6 +321,18 @@ class CallBacks:
         else:
             raise Exception('Error saving')
 
+    def show_qr_code_item(self):
+
+        # frame = Image.open("qrcode.png")
+        # pb = GdkPixbuf.Pixbuf.new_from_data(frame.tostring(),
+        #                                     GdkPixbuf.Colorspace.RGB,
+        #                                     False,
+        #                                     8,
+        #                                     frame.shape[1],
+        #                                     frame.shape[0],
+        #                                     frame.shape[2]*frame.shape[1])
+        pb = GdkPixbuf.Pixbuf.new_from_file('qrcode.png')
+        image_qr_window.set_from_pixbuf(pb.copy())
 
 # =================================HANDLERS==================
 # Handler log in
@@ -297,7 +354,7 @@ class Handler:
         print("password=", password)
 
         # ok = self.callbacks.login(username, password)
-        ok = self.callbacks.login("tiago1234", "tiago1234")
+        ok = self.callbacks.login(username, password)
 
         if ok:
             window_login.hide()
@@ -337,6 +394,8 @@ class Handler:
         print("CREATE ID")
         self.callbacks.CreateItem()
         # Gtk.main_quit()
+        self.callbacks.show_qr_code_item()
+        window_qr.show_all()
 
     def onButtonBackward_objectid(self, button):
         window_create_objectid.hide()
@@ -352,6 +411,10 @@ class Handler:
             # print("Selected: ID=%d, name=%s" % (row_id, name))
         else:
             print("else else")
+
+    def onAddComposition(self, button):
+        self.callbacks.add_ingredient_id()
+
 
     # ********** HANDLER CREATE PRODUCT*****
     def onDestroyProduct_main(self, *args):
@@ -369,6 +432,13 @@ class Handler:
         window_create_product.hide()
         window_choose.show_all()
 
+    # ********** HANDLER SHOW QRCODE *****
+    def on_button_qrcode_print(self, button):
+        print("PRINTING QR....")
+
+    def on_button_qrcode_backward(self, button):
+        window_qr.hide()
+
 
 # --------------------------------------------------------
 
@@ -383,12 +453,19 @@ window_login = builder.get_object("GTK_window_loggin")
 window_choose = builder.get_object("GTK_window_choose")
 window_create_product = builder.get_object("GTK_window_createproduct")
 window_create_objectid = builder.get_object("GTK_window_createobjectid")
+window_qr = builder.get_object("GTK_qr_window")
 # ---------------------------------------------------
 window_login.show_all()  # START first window
+
+window_create_product.maximize()
+window_create_objectid.maximize()
+
 # opencv
 cap = cv2.VideoCapture(0)
 image = builder.get_object("camera_image")
 image_qr = builder.get_object("qr_image")
+image_qr_window = builder.get_object("imagem_qrcode")
+
 
 GLib.idle_add(callbacks.show_frame)
 GLib.idle_add(callbacks.show_frame_qr)

@@ -2,6 +2,93 @@
 <!-- Generated with glade 3.22.1 -->
 <interface>
   <requires lib="gtk+" version="3.20"/>
+  <object class="GtkDialog" id="GTK_qr_window">
+    <property name="can_focus">False</property>
+    <property name="type_hint">dialog</property>
+    <child>
+      <placeholder/>
+    </child>
+    <child internal-child="vbox">
+      <object class="GtkBox">
+        <property name="can_focus">False</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">2</property>
+        <property name="homogeneous">True</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox" id="window_qr">
+            <property name="can_focus">False</property>
+            <property name="layout_style">end</property>
+            <child>
+              <object class="GtkButton" id="button_back_qrcode">
+                <property name="label" translatable="yes">Backward</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <signal name="pressed" handler="on_button_qrcode_backward" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="button_print_qrcode">
+                <property name="label" translatable="yes">Print</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <signal name="pressed" handler="on_button_qrcode_print" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkFrame">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="label_xalign">0.5</property>
+            <property name="shadow_type">etched-out</property>
+            <child>
+              <object class="GtkAlignment">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <child>
+                  <object class="GtkImage" id="imagem_qrcode">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="stock">gtk-missing-image</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child type="label">
+              <object class="GtkLabel">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Qrcode</property>
+              </object>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">True</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
   <object class="GtkDialog" id="GTK_window_choose">
     <property name="can_focus">False</property>
     <property name="default_width">250</property>
@@ -24,7 +111,7 @@
             <property name="layout_style">end</property>
             <child>
               <object class="GtkButton" id="button_cancel_create">
-                <property name="label" translatable="yes">cancel</property>
+                <property name="label" translatable="yes">Cancel</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
@@ -129,7 +216,7 @@
                               <object class="GtkLabel">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="label" translatable="yes">QR code / Camera</property>
+                                <property name="label" translatable="yes">Camera</property>
                               </object>
                             </child>
                           </object>
@@ -156,14 +243,12 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkButton" id="button_printQR">
-                                <property name="label" translatable="yes">Print ID</property>
+                              <object class="GtkSeparator">
                                 <property name="visible">True</property>
-                                <property name="can_focus">True</property>
-                                <property name="receives_default">True</property>
+                                <property name="can_focus">False</property>
                               </object>
                               <packing>
-                                <property name="expand">False</property>
+                                <property name="expand">True</property>
                                 <property name="fill">True</property>
                                 <property name="position">1</property>
                               </packing>
@@ -255,7 +340,7 @@
                               <object class="GtkLabel">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="label" translatable="yes">Weight/Quantaty</property>
+                                <property name="label" translatable="yes">Weight/Quantity</property>
                               </object>
                             </child>
                           </object>
@@ -326,10 +411,11 @@
                                     </child>
                                     <child>
                                       <object class="GtkButton" id="button_add_item_for_composition">
-                                        <property name="label" translatable="yes">add</property>
+                                        <property name="label" translatable="yes">Add</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">True</property>
+                                        <signal name="pressed" handler="onAddComposition" swapped="no"/>
                                       </object>
                                       <packing>
                                         <property name="expand">False</property>
@@ -339,7 +425,7 @@
                                     </child>
                                     <child>
                                       <object class="GtkButton" id="button_delete_item_for_composition">
-                                        <property name="label" translatable="yes">delete</property>
+                                        <property name="label" translatable="yes">Delete</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">True</property>
@@ -544,17 +630,6 @@
                             <property name="position">0</property>
                           </packing>
                         </child>
-                        <child>
-                          <object class="GtkSeparator">
-                            <property name="visible">True</property>
-                            <property name="can_focus">False</property>
-                          </object>
-                          <packing>
-                            <property name="expand">True</property>
-                            <property name="fill">True</property>
-                            <property name="position">1</property>
-                          </packing>
-                        </child>
                       </object>
                       <packing>
                         <property name="expand">False</property>
@@ -665,7 +740,7 @@
                                     </child>
                                     <child>
                                       <object class="GtkButton" id="button_add_product_composition">
-                                        <property name="label" translatable="yes">delete</property>
+                                        <property name="label" translatable="yes">Delete</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">True</property>
@@ -858,7 +933,7 @@
             <property name="layout_style">end</property>
             <child>
               <object class="GtkButton" id="button_cancel_login">
-                <property name="label" translatable="yes">cancel</property>
+                <property name="label" translatable="yes">Cancel</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
@@ -872,7 +947,7 @@
             </child>
             <child>
               <object class="GtkButton" id="button_ok_login">
-                <property name="label" translatable="yes">ok</property>
+                <property name="label" translatable="yes">Ok</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
@@ -913,7 +988,7 @@
               <object class="GtkLabel">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">USER name</property>
+                <property name="label" translatable="yes">UserName</property>
               </object>
             </child>
           </object>
@@ -954,6 +1029,18 @@
             <property name="expand">False</property>
             <property name="fill">True</property>
             <property name="position">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkImage">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="stock">gtk-missing-image</property>
+          </object>
+          <packing>
+            <property name="expand">True</property>
+            <property name="fill">True</property>
+            <property name="position">3</property>
           </packing>
         </child>
       </object>
